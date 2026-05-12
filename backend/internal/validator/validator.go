@@ -53,7 +53,7 @@ var (
 const nativeNote = "Gatus does not expose a --validate CLI flag. Schema-based validation is used instead."
 
 func Validate(content string) Result {
-	r := Result{Valid: true, NativeValidationNote: nativeNote}
+	r := Result{Valid: true, Errors: []Issue{}, Warnings: []Issue{}, NativeValidationNote: nativeNote}
 
 	data, err := yamlutil.Parse(content)
 	if err != nil {

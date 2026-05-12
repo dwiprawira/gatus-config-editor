@@ -18,7 +18,7 @@ export function ValidationPanel({ result }: { result: ValidationResult | null })
         </div>
       )}
 
-      {result.errors.map((e, i) => (
+      {(result.errors ?? []).map((e, i) => (
         <div key={i} className="flex gap-2 text-sm text-red-700 bg-red-50 rounded px-3 py-2">
           <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
           <div>
@@ -28,7 +28,7 @@ export function ValidationPanel({ result }: { result: ValidationResult | null })
         </div>
       ))}
 
-      {result.warnings.map((w, i) => (
+      {(result.warnings ?? []).map((w, i) => (
         <div key={i} className="flex gap-2 text-sm text-yellow-700 bg-yellow-50 rounded px-3 py-2">
           <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
           <div>

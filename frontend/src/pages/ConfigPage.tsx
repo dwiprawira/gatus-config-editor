@@ -52,7 +52,7 @@ export function ConfigPage({ config, rawYaml, filename, onConfigChange, onRawYam
       const res = await validateConfig(rawYaml)
       setValidation(res.data)
       if (res.data.valid) toast.success('Config is valid')
-      else toast.error(`${res.data.errors.length} error(s) found`)
+      else toast.error(`${(res.data.errors ?? []).length} error(s) found`)
     } catch {
       toast.error('Validation failed')
     }
