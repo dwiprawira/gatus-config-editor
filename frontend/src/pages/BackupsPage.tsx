@@ -68,10 +68,10 @@ export function BackupsPage({ currentFile }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
         <h1 className="text-2xl font-bold text-gray-900">Backups</h1>
         <div className="text-sm text-gray-500">
-          Showing backups for: <span className="font-mono">{currentFile}</span>
+          <span className="font-mono">{currentFile}</span>
         </div>
       </div>
 
@@ -83,17 +83,17 @@ export function BackupsPage({ currentFile }: Props) {
       ) : (
         <div className="card divide-y">
           {backups.map((backup) => (
-            <div key={backup.id} className="flex items-center gap-4 px-6 py-4">
+            <div key={backup.id} className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 sm:px-6 py-4">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 font-mono">{backup.backup}</p>
-                <div className="flex gap-4 text-xs text-gray-400 mt-1">
+                <p className="text-sm font-medium text-gray-900 font-mono truncate">{backup.backup}</p>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-400 mt-1">
                   <span>{formatDate(backup.timestamp)}</span>
                   <span>by {backup.user}</span>
                   <span className="font-mono">{backup.sha256.slice(0, 8)}…</span>
                   {!backup.exists && <span className="text-red-500">File missing</span>}
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <button className="btn-secondary text-xs" onClick={() => setViewId(backup.id)}>
                   <Eye className="h-3 w-3" /> View
                 </button>

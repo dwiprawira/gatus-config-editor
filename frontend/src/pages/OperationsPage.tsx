@@ -63,7 +63,7 @@ export function OperationsPage() {
 
         {statusLoading ? <Spinner /> : status ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
               <div>
                 <p className="text-gray-500 text-xs mb-1">Status</p>
                 <Badge label={status.status} variant={statusVariant(status.status) as 'green' | 'red' | 'yellow' | 'blue' | 'gray'} />
@@ -130,9 +130,9 @@ export function OperationsPage() {
             <Terminal className="h-5 w-5 text-brand-600" />
             Container Logs
           </h2>
-          <div className="flex gap-3 items-center">
+          <div className="flex gap-2 items-center">
             <select
-              className="input text-sm w-32"
+              className="input text-sm w-28"
               value={logTail}
               onChange={(e) => setLogTail(parseInt(e.target.value))}
             >
@@ -142,7 +142,7 @@ export function OperationsPage() {
               <option value={500}>Last 500</option>
             </select>
             <button className="btn-secondary text-sm" onClick={() => refetchLogs()}>
-              <RefreshCw className="h-4 w-4" /> Refresh
+              <RefreshCw className="h-4 w-4" /> <span className="hidden sm:inline">Refresh</span>
             </button>
           </div>
         </div>

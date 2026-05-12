@@ -142,13 +142,13 @@ export function EndpointsPage({ config, onSave }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900">Endpoints</h1>
           {savingEndpoint && <p className="text-xs text-gray-500 mt-1">Saving endpoint changes…</p>}
         </div>
-        <button className="btn-primary" onClick={startAdd} disabled={savingEndpoint}>
-          <Plus className="h-4 w-4" /> Add Endpoint
+        <button className="btn-primary shrink-0" onClick={startAdd} disabled={savingEndpoint}>
+          <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Add Endpoint</span><span className="sm:hidden">Add</span>
         </button>
       </div>
 
@@ -210,24 +210,27 @@ export function EndpointsPage({ config, onSave }: Props) {
                       const idx = endpoints.indexOf(ep)
                       const status = getStatus(ep)
                       return (
-                        <div key={idx} className="flex items-center gap-4 px-4 py-3">
-                          {/* Status dot */}
+                        <div key={idx} className="flex items-center gap-3 px-4 py-3">
                           <StatusDot success={status?.success ?? null} />
 
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-900 text-sm">{ep.name}</p>
+                            <p className="font-medium text-gray-900 text-sm truncate">{ep.name}</p>
                             <p className="text-xs text-gray-400 font-mono truncate">{ep.url}</p>
+                            <div className="flex items-center gap-2 mt-0.5 sm:hidden text-xs text-gray-400">
+                              <DurationBadge ms={status?.last_duration_ms ?? null} />
+                              <span>{ep.interval ?? '60s'}</span>
+                            </div>
                           </div>
 
-                          <div className="flex items-center gap-3 text-xs text-gray-400">
+                          <div className="hidden sm:flex items-center gap-3 text-xs text-gray-400">
                             <DurationBadge ms={status?.last_duration_ms ?? null} />
                             <span>{ep.interval ?? '60s'}</span>
                           </div>
 
-                          <div className="flex gap-1">
-                            <button className="p-1 text-gray-400 hover:text-brand-600" onClick={() => startEdit(idx)} title="Edit"><Edit2 className="h-4 w-4" /></button>
-                            <button className="p-1 text-gray-400 hover:text-brand-600" onClick={() => duplicate(idx)} title="Duplicate"><Copy className="h-4 w-4" /></button>
-                            <button className="p-1 text-gray-400 hover:text-red-600" onClick={() => setDeleteIdx(idx)} title="Delete"><Trash2 className="h-4 w-4" /></button>
+                          <div className="flex gap-1 shrink-0">
+                            <button className="p-1.5 text-gray-400 hover:text-brand-600" onClick={() => startEdit(idx)} title="Edit"><Edit2 className="h-4 w-4" /></button>
+                            <button className="p-1.5 text-gray-400 hover:text-brand-600" onClick={() => duplicate(idx)} title="Duplicate"><Copy className="h-4 w-4" /></button>
+                            <button className="p-1.5 text-gray-400 hover:text-red-600" onClick={() => setDeleteIdx(idx)} title="Delete"><Trash2 className="h-4 w-4" /></button>
                           </div>
                         </div>
                       )

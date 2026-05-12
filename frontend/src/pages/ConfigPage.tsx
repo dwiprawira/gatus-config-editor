@@ -78,10 +78,28 @@ export function ConfigPage({ config, rawYaml, filename, onConfigChange, onRawYam
   }
 
   return (
-    <div className="flex gap-6">
-      {/* Section nav */}
-      <aside className="w-44 shrink-0">
-        <nav className="space-y-1 sticky top-0">
+    <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+      {/* Section nav — vertical on desktop, horizontal scroll on mobile */}
+      <aside className="md:w-44 md:shrink-0">
+        {/* Mobile: horizontal scrollable tabs */}
+        <div className="md:hidden flex gap-1 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+          {SECTIONS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setSection(id)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium whitespace-nowrap transition-colors shrink-0 ${
+                section === id
+                  ? 'bg-brand-50 text-brand-700'
+                  : 'text-gray-600 bg-white border border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5 shrink-0" />
+              {label}
+            </button>
+          ))}
+        </div>
+        {/* Desktop: vertical list */}
+        <nav className="hidden md:block space-y-1 sticky top-0">
           {SECTIONS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -102,7 +120,7 @@ export function ConfigPage({ config, rawYaml, filename, onConfigChange, onRawYam
       {/* Main content */}
       <div className="flex-1 min-w-0 space-y-4">
         {section !== 'raw' && (
-          <div className="flex items-center gap-3 justify-end">
+          <div className="flex items-center gap-2 justify-end flex-wrap">
             <button className="btn-secondary text-sm" onClick={handleValidate}>
               <CheckCircle className="h-4 w-4" /> Validate
             </button>

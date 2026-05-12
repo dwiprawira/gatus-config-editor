@@ -68,7 +68,7 @@ export function DashboardPage() {
         {statusLoading ? (
           <Spinner />
         ) : status ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
             <div>
               <p className="text-gray-500">Status</p>
               <StatusIndicator status={status.status} />
@@ -101,7 +101,7 @@ export function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <StatCard icon={FileText} label="Config Files" value={files?.length ?? '—'} to="/config" />
         <StatCard icon={Server} label="Endpoints" value={endpointDisplay} to="/endpoints" />
         <StatCard icon={Activity} label="Container Status" value={status?.status ?? '—'} to="/operations" />
