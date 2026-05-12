@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Background circle -->
+  <rect width="32" height="32" rx="8" fill="#0ea5e9"/>
+  <!-- Heartbeat / pulse line -->
+  <polyline
+    points="3,16 8,16 10,10 13,22 16,13 19,19 21,16 29,16"
+    stroke="white"
+    stroke-width="2.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+</svg>

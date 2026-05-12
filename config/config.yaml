@@ -1,0 +1,32 @@
+# Sample Gatus configuration
+# See https://github.com/TwiN/gatus for full documentation
+
+metrics: false
+
+storage:
+  type: memory
+
+web:
+  port: 8080
+
+ui:
+  title: "Status | Gatus"
+  header: "Status"
+  dark-mode: true
+
+endpoints:
+  - name: example-http
+    url: https://example.com
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+      - "[RESPONSE_TIME] < 500"
+
+  - name: example-dns
+    url: "dns://8.8.8.8"
+    interval: 5m
+    dns:
+      query-name: "example.com"
+      query-type: "A"
+    conditions:
+      - "[DNS_RCODE] == NOERROR"

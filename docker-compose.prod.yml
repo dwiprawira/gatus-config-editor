@@ -1,0 +1,49 @@
+# Production docker-compose — uses pre-built image from ghcr.io
+# Usage: docker compose -f docker-compose.prod.yml up -d
+
+services:
+  gatus:
+    image: twinproduction/gatus:latest
+    container_name: gatus
+    restart: unless-stopped
+    volumes:
+      - gatus-config:/config
+    environment:
+      GATUS_CONFIG_PATH: /config/config.yaml
+    ports:
+      - "8081:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  app:
+    image: ghcr.io/dwiprawira/gatus-config-editor:latest
+    container_name: gatus-config-editor
+    restart: unless-stopped
+    pull_policy: always
+    volumes:
+      - gatus-config:/config
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      GATUS_CONFIG_PATH: ${GATUS_CONFIG_PATH:-/config/config.yaml}
+      GATUS_CONTAINER_NAME: ${GATUS_CONTAINER_NAME:-gatus}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      SESSION_SECRET: ${SESSION_SECRET}
+      BACKUP_DIR: ${BACKUP_DIR:-/config/backups}
+      ALLOW_DOCKER_RESTART: ${ALLOW_DOCKER_RESTART:-true}
+      GATUS_API_URL: ${GATUS_API_URL:-http://gatus:8080}
+      READ_ONLY_MODE: ${READ_ONLY_MODE:-false}
+      HTTPS_ONLY: ${HTTPS_ONLY:-false}
+      CSRF_ENABLED: ${CSRF_ENABLED:-true}
+    ports:
+      - "${APP_PORT:-8080}:8000"
+    depends_on:
+      - gatus
+
+volumes:
+  gatus-config:
+    driver: local

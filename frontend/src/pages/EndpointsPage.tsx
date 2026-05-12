@@ -1,0 +1,245 @@
+import { useState, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Plus, Copy, Trash2, Edit2, ChevronDown, ChevronRight } from 'lucide-react'
+import type { Endpoint, GatusConfig } from '../types/gatus'
+import { EndpointForm } from '../components/endpoints/EndpointForm'
+import { Modal } from '../components/ui/Modal'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
+import { getGatusEndpointStatuses } from '../api/gatus'
+import type { EndpointStatusOut } from '../api/gatus'
+
+const EMPTY_ENDPOINT: Endpoint = {
+  name: '',
+  url: 'https://',
+  interval: '5m',
+  conditions: ['[STATUS] == 200'],
+}
+
+function StatusDot({ success }: { success: boolean | null }) {
+  if (success === null) return (
+    <span className="h-2.5 w-2.5 rounded-full bg-gray-300 inline-block" title="No data yet" />
+  )
+  if (success) return (
+    <span className="h-2.5 w-2.5 rounded-full bg-green-500 inline-block" title="Healthy" />
+  )
+  return (
+    <span className="h-2.5 w-2.5 rounded-full bg-red-500 inline-block animate-pulse" title="Unhealthy" />
+  )
+}
+
+function DurationBadge({ ms }: { ms: number | null }) {
+  if (ms === null) return null
+  const color = ms < 200 ? 'text-green-600' : ms < 500 ? 'text-yellow-600' : 'text-red-600'
+  return <span className={`text-xs font-mono ${color}`}>{ms}ms</span>
+}
+
+interface Props {
+  config: GatusConfig
+  onChange: (c: GatusConfig) => void
+}
+
+export function EndpointsPage({ config, onChange }: Props) {
+  const configuredProviders = Object.keys(config.alerting ?? {})
+  const [editIdx, setEditIdx] = useState<number | null>(null)
+  const [isAdding, setIsAdding] = useState(false)
+  const [draft, setDraft] = useState<Endpoint>(EMPTY_ENDPOINT)
+  const [deleteIdx, setDeleteIdx] = useState<number | null>(null)
+  const [groupFilter, setGroupFilter] = useState<string>('all')
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+
+  const endpoints = config.endpoints ?? []
+
+  // Fetch live status from Gatus API (auto-refresh every 30s)
+  const { data: statuses } = useQuery({
+    queryKey: ['gatus-endpoint-statuses'],
+    queryFn: () => getGatusEndpointStatuses().then((r) => r.data),
+    refetchInterval: 30_000,
+    retry: false, // don't spam if Gatus is down
+  })
+
+  // Build a lookup map: endpoint key → status
+  const statusMap = useMemo(() => {
+    const map = new Map<string, EndpointStatusOut>()
+    statuses?.forEach((s) => {
+      map.set(s.key, s)
+      // Also index by name for matching with config endpoints
+      map.set(s.name, s)
+      if (s.group) map.set(`${s.group}_${s.name}`, s)
+    })
+    return map
+  }, [statuses])
+
+  const getStatus = (ep: Endpoint): EndpointStatusOut | undefined => {
+    const group = ep.group ?? ''
+    return (
+      statusMap.get(group ? `${group}_${ep.name}` : ep.name) ??
+      statusMap.get(ep.name)
+    )
+  }
+
+  const groups = useMemo(() => {
+    const g = new Set(endpoints.map((e) => e.group ?? 'ungrouped'))
+    return ['all', ...Array.from(g)]
+  }, [endpoints])
+
+  const filtered = groupFilter === 'all' ? endpoints : endpoints.filter((e) => (e.group ?? 'ungrouped') === groupFilter)
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, Endpoint[]>()
+    filtered.forEach((ep) => {
+      const g = ep.group ?? 'ungrouped'
+      if (!map.has(g)) map.set(g, [])
+      map.get(g)!.push(ep)
+    })
+    return map
+  }, [filtered])
+
+  const updateEndpoints = (eps: Endpoint[]) => onChange({ ...config, endpoints: eps })
+
+  const startAdd = () => { setDraft({ ...EMPTY_ENDPOINT }); setIsAdding(true) }
+  const startEdit = (i: number) => { setDraft({ ...endpoints[i] }); setEditIdx(i) }
+
+  const saveNew = () => { updateEndpoints([...endpoints, draft]); setIsAdding(false) }
+  const saveEdit = () => {
+    if (editIdx === null) return
+    const next = [...endpoints]; next[editIdx] = draft
+    updateEndpoints(next); setEditIdx(null)
+  }
+
+  const duplicate = (i: number) => {
+    const copy = { ...endpoints[i], name: `${endpoints[i].name}-copy` }
+    updateEndpoints([...endpoints.slice(0, i + 1), copy, ...endpoints.slice(i + 1)])
+  }
+
+  const confirmDelete = () => {
+    if (deleteIdx === null) return
+    updateEndpoints(endpoints.filter((_, i) => i !== deleteIdx))
+    setDeleteIdx(null)
+  }
+
+  const toggleGroup = (g: string) => {
+    const next = new Set(collapsedGroups)
+    next.has(g) ? next.delete(g) : next.add(g)
+    setCollapsedGroups(next)
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Endpoints</h1>
+        <button className="btn-primary" onClick={startAdd}>
+          <Plus className="h-4 w-4" /> Add Endpoint
+        </button>
+      </div>
+
+      {/* Group filter */}
+      <div className="flex gap-2 flex-wrap">
+        {groups.map((g) => (
+          <button
+            key={g}
+            className={`px-3 py-1 rounded-full text-sm border transition-colors ${
+              groupFilter === g
+                ? 'bg-brand-600 text-white border-brand-600'
+                : 'bg-white text-gray-600 border-gray-300 hover:border-brand-400'
+            }`}
+            onClick={() => setGroupFilter(g)}
+          >
+            {g}
+          </button>
+        ))}
+      </div>
+
+      {/* Endpoint list */}
+      {endpoints.length === 0 ? (
+        <div className="card p-12 text-center text-gray-400">
+          <p className="mb-4">No endpoints configured.</p>
+          <button className="btn-primary" onClick={startAdd}><Plus className="h-4 w-4" /> Add your first endpoint</button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {Array.from(grouped.entries()).map(([group, eps]) => {
+            const healthyCount = eps.filter((ep) => getStatus(ep)?.success === true).length
+            const unhealthyCount = eps.filter((ep) => getStatus(ep)?.success === false).length
+
+            return (
+              <div key={group} className="card">
+                <button
+                  className="flex items-center gap-2 w-full px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 rounded-t-lg"
+                  onClick={() => toggleGroup(group)}
+                >
+                  {collapsedGroups.has(group) ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  <span className="uppercase tracking-wide text-xs text-gray-500">{group}</span>
+                  <span className="text-xs text-gray-400 ml-auto flex items-center gap-2">
+                    {statuses && (
+                      <>
+                        {unhealthyCount > 0 && (
+                          <span className="text-red-500 font-medium">{unhealthyCount} down</span>
+                        )}
+                        {healthyCount > 0 && (
+                          <span className="text-green-600">{healthyCount} up</span>
+                        )}
+                      </>
+                    )}
+                    <span>{eps.length} endpoint(s)</span>
+                  </span>
+                </button>
+
+                {!collapsedGroups.has(group) && (
+                  <div className="divide-y border-t">
+                    {eps.map((ep) => {
+                      const idx = endpoints.indexOf(ep)
+                      const status = getStatus(ep)
+                      return (
+                        <div key={idx} className="flex items-center gap-4 px-4 py-3">
+                          {/* Status dot */}
+                          <StatusDot success={status?.success ?? null} />
+
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 text-sm">{ep.name}</p>
+                            <p className="text-xs text-gray-400 font-mono truncate">{ep.url}</p>
+                          </div>
+
+                          <div className="flex items-center gap-3 text-xs text-gray-400">
+                            <DurationBadge ms={status?.last_duration_ms ?? null} />
+                            <span>{ep.interval ?? '60s'}</span>
+                          </div>
+
+                          <div className="flex gap-1">
+                            <button className="p-1 text-gray-400 hover:text-brand-600" onClick={() => startEdit(idx)} title="Edit"><Edit2 className="h-4 w-4" /></button>
+                            <button className="p-1 text-gray-400 hover:text-brand-600" onClick={() => duplicate(idx)} title="Duplicate"><Copy className="h-4 w-4" /></button>
+                            <button className="p-1 text-gray-400 hover:text-red-600" onClick={() => setDeleteIdx(idx)} title="Delete"><Trash2 className="h-4 w-4" /></button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Add modal */}
+      <Modal open={isAdding} onClose={() => setIsAdding(false)} title="Add Endpoint" size="xl">
+        <EndpointForm value={draft} onChange={setDraft} onCancel={() => setIsAdding(false)} onSave={saveNew} configuredProviders={configuredProviders} />
+      </Modal>
+
+      {/* Edit modal */}
+      <Modal open={editIdx !== null} onClose={() => setEditIdx(null)} title="Edit Endpoint" size="xl">
+        <EndpointForm value={draft} onChange={setDraft} onCancel={() => setEditIdx(null)} onSave={saveEdit} configuredProviders={configuredProviders} />
+      </Modal>
+
+      {/* Delete confirm */}
+      <ConfirmDialog
+        open={deleteIdx !== null}
+        title="Delete Endpoint"
+        message={`Delete "${endpoints[deleteIdx ?? 0]?.name}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteIdx(null)}
+      />
+    </div>
+  )
+}

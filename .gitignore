@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+*.egg
+.pytest_cache/
+
+# Node
+node_modules/
+frontend/dist/
+.npm
+
+# Environment
+.env
+*.local
+
+# Backups (do not commit)
+config/backups/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# IDE / Claude Code
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
