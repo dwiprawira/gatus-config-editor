@@ -14,10 +14,10 @@ import { OperationsPage } from './pages/OperationsPage'
 import { Spinner } from './components/ui/Spinner'
 
 import { getMe } from './api/auth'
-import { getConfigFiles, getConfigFile } from './api/config'
+import { getConfigFiles, getConfigFile, saveConfig } from './api/config'
 import { useAuthStore } from './stores/authStore'
 import type { GatusConfig } from './types/gatus'
-import { parseYaml, dumpYaml } from './utils/yamlParse'
+import { parseYaml, tryParseYaml, dumpYaml } from './utils/yamlParse'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
@@ -49,6 +49,7 @@ function AppShell() {
   const [rawYaml, setRawYaml] = useState('')
   const [config, setConfig] = useState<GatusConfig>({})
   const [currentFile, setCurrentFile] = useState('')
+  const [dirty, setDirty] = useState(false)
 
   const { data: files } = useQuery({
     queryKey: ['config-files'],
@@ -64,21 +65,39 @@ function AppShell() {
   })
 
   useEffect(() => {
-    if (fileContent) {
+    if (fileContent && !dirty) {
       setRawYaml(fileContent.content)
       setConfig(parseYaml(fileContent.content))
       setCurrentFile(fileContent.name)
     }
-  }, [fileContent])
+  }, [fileContent, dirty])
 
   const handleConfigChange = (next: GatusConfig, yaml: string) => {
     setConfig(next)
     setRawYaml(yaml)
+    setDirty(true)
   }
 
   const handleRawYamlChange = (yaml: string) => {
     setRawYaml(yaml)
-    setConfig(parseYaml(yaml))
+    const { config: parsed, error } = tryParseYaml(yaml)
+    if (!error) {
+      setConfig(parsed)
+    }
+    setDirty(true)
+  }
+
+  const handleConfigSaved = (yaml?: string) => {
+    if (yaml !== undefined) setRawYaml(yaml)
+    setDirty(false)
+  }
+
+  const saveEndpointConfig = async (next: GatusConfig) => {
+    const yaml = dumpYaml(next)
+    await saveConfig(currentFile || primaryFile, yaml, false)
+    setConfig(next)
+    setRawYaml(yaml)
+    setDirty(false)
   }
 
   return (
@@ -94,6 +113,7 @@ function AppShell() {
               filename={currentFile}
               onConfigChange={handleConfigChange}
               onRawYamlChange={handleRawYamlChange}
+              onSaved={handleConfigSaved}
             />
           }
         />
@@ -102,7 +122,7 @@ function AppShell() {
           element={
             <EndpointsPage
               config={config}
-              onChange={(next) => handleConfigChange(next, dumpYaml(next))}
+              onSave={saveEndpointConfig}
             />
           }
         />

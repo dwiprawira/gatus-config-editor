@@ -29,14 +29,15 @@ services:
       GATUS_CONFIG_PATH: ${GATUS_CONFIG_PATH:-/config/config.yaml}
       GATUS_CONTAINER_NAME: ${GATUS_CONTAINER_NAME:-gatus}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me}
-      SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
       BACKUP_DIR: ${BACKUP_DIR:-/config/backups}
       ALLOW_DOCKER_RESTART: ${ALLOW_DOCKER_RESTART:-true}
       GATUS_API_URL: ${GATUS_API_URL:-http://gatus:8080}
       READ_ONLY_MODE: ${READ_ONLY_MODE:-false}
       HTTPS_ONLY: ${HTTPS_ONLY:-false}
       CSRF_ENABLED: ${CSRF_ENABLED:-true}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
     ports:
       - "${APP_PORT:-8080}:8000"
     depends_on:

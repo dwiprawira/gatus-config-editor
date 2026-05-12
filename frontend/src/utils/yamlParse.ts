@@ -1,16 +1,21 @@
 import yaml from 'js-yaml'
 import type { GatusConfig } from '../types/gatus'
 
-export function parseYaml(content: string): GatusConfig {
+export function tryParseYaml(content: string): { config: GatusConfig; error: Error | null } {
   try {
     const parsed = yaml.load(content)
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed as GatusConfig
+    if (parsed == null) return { config: {}, error: null }
+    if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return { config: parsed as GatusConfig, error: null }
     }
-  } catch {
-    // ignore parse errors — caller decides how to handle
+    return { config: {}, error: new Error('YAML root must be a mapping') }
+  } catch (error) {
+    return { config: {}, error: error as Error }
   }
-  return {}
+}
+
+export function parseYaml(content: string): GatusConfig {
+  return tryParseYaml(content).config
 }
 
 export function dumpYaml(config: GatusConfig): string {

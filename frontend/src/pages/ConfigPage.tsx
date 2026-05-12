@@ -36,9 +36,10 @@ interface Props {
   filename: string
   onConfigChange: (c: GatusConfig, yaml: string) => void
   onRawYamlChange: (yaml: string) => void
+  onSaved?: (yaml?: string) => void
 }
 
-export function ConfigPage({ config, rawYaml, filename, onConfigChange, onRawYamlChange }: Props) {
+export function ConfigPage({ config, rawYaml, filename, onConfigChange, onRawYamlChange, onSaved }: Props) {
   const [section, setSection] = useState<SectionId>('alerting')
   const [validation, setValidation] = useState<ValidationResult | null>(null)
   const [saving, setSaving] = useState(false)
@@ -62,6 +63,7 @@ export function ConfigPage({ config, rawYaml, filename, onConfigChange, onRawYam
     setSaving(true)
     try {
       await saveConfig(filename, rawYaml, force)
+      onSaved?.(rawYaml)
       toast.success('Configuration saved')
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
@@ -164,7 +166,8 @@ export function ConfigPage({ config, rawYaml, filename, onConfigChange, onRawYam
             <RawYamlEditor
               filename={filename}
               initialContent={rawYaml}
-              onSaved={(content) => onRawYamlChange(content)}
+              onChange={onRawYamlChange}
+              onSaved={(content) => { onRawYamlChange(content); onSaved?.(content) }}
             />
           </div>
         )}

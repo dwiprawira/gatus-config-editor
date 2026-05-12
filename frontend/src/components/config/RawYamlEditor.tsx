@@ -10,26 +10,33 @@ import { useDirty } from '../../hooks/useDirty'
 interface Props {
   filename: string
   initialContent: string
+  onChange?: (content: string) => void
   onSaved: (content: string) => void
 }
 
-export function RawYamlEditor({ filename, initialContent, onSaved }: Props) {
+export function RawYamlEditor({ filename, initialContent, onChange, onSaved }: Props) {
   const [content, setContent] = useState(initialContent)
   const [validation, setValidation] = useState<ValidationResult | null>(null)
   const [validating, setValidating] = useState(false)
   const [saving, setSaving] = useState(false)
-  const { dirty, markClean } = useDirty(initialContent)
+  const { dirty, markClean } = useDirty(content)
 
   // Keep a ref so the keyboard handler always sees fresh content
   const contentRef = useRef(content)
   useEffect(() => { contentRef.current = content }, [content])
+  useEffect(() => {
+    if (!dirty) {
+      setContent(initialContent)
+      markClean(initialContent)
+    }
+  }, [dirty, initialContent, markClean])
 
   const handleSave = useCallback(async (force = false) => {
     setSaving(true)
     try {
       await saveConfig(filename, contentRef.current, force)
-      markClean(contentRef.current)
       onSaved(contentRef.current)
+      markClean(contentRef.current)
       toast.success('Saved')
       const res = await validateConfig(contentRef.current)
       setValidation(res.data)
@@ -105,7 +112,11 @@ export function RawYamlEditor({ filename, initialContent, onSaved }: Props) {
         <Editor
           language="yaml"
           value={content}
-          onChange={(v) => setContent(v ?? '')}
+          onChange={(v) => {
+            const next = v ?? ''
+            setContent(next)
+            onChange?.(next)
+          }}
           options={{
             minimap: { enabled: false },
             fontSize: 13,

@@ -1,17 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useReducer, useRef } from 'react'
 
 export function useDirty(value: string) {
   const original = useRef(value)
-  const [dirty, setDirty] = useState(false)
+  const [, forceRender] = useReducer((version: number) => version + 1, 0)
+  const dirty = value !== original.current
 
-  useEffect(() => {
-    setDirty(value !== original.current)
-  }, [value])
-
-  const markClean = (newValue: string) => {
+  const markClean = useCallback((newValue: string) => {
     original.current = newValue
-    setDirty(false)
-  }
+    forceRender()
+  }, [])
 
   return { dirty, markClean }
 }

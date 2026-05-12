@@ -128,13 +128,14 @@ A single pre-built image (Go backend + React frontend combined) is published to 
 ### 1. Create `.env` on the server
 
 ```bash
-# Generate a strong session secret (requires openssl)
-SESSION_SECRET=$(openssl rand -hex 32)
+# Generate strong credentials (requires openssl)
+ADMIN_PASSWORD="$(openssl rand -base64 24)"
+SESSION_SECRET="$(openssl rand -hex 32)"
 
 cat > .env <<EOF
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD=change-me-strong-password
-SESSION_SECRET=${SESSION_SECRET}
+ADMIN_PASSWORD=$ADMIN_PASSWORD
+SESSION_SECRET=$SESSION_SECRET
 GATUS_CONFIG_PATH=/config/config.yaml
 GATUS_CONTAINER_NAME=gatus
 APP_PORT=8080
@@ -221,13 +222,15 @@ docker compose -f docker-compose.prod.yml up -d
 | `GATUS_CONTAINER_NAME` | `gatus` | Docker container name for Gatus |
 | `GATUS_API_URL` | `http://gatus:8080` | Internal URL to reach Gatus API (for status proxy) |
 | `ADMIN_USERNAME` | `admin` | Login username |
-| `ADMIN_PASSWORD` | `change-me` | Login password (bcrypt-hashed at startup) |
-| `SESSION_SECRET` | `change-me-in-production` | Cookie signing secret — **must be changed** |
+| `ADMIN_PASSWORD` | required | Login password (bcrypt-hashed at startup) |
+| `SESSION_SECRET` | required | Cookie signing secret, minimum 32 chars |
 | `BACKUP_DIR` | `/config/backups` | Where backups are stored |
 | `ALLOW_DOCKER_RESTART` | `true` | Allow UI to restart the Gatus container |
 | `READ_ONLY_MODE` | `false` | Disable all config modifications |
 | `HTTPS_ONLY` | `false` | Set `true` when behind TLS (secures session cookie) |
 | `CSRF_ENABLED` | `true` | Enable CSRF token validation |
+| `CORS_ORIGINS` | empty | Comma-separated allowed origins; empty means no CORS headers |
+| `ALLOW_INSECURE_DEFAULTS` | `false` | Development-only bypass for required secret checks |
 
 ---
 

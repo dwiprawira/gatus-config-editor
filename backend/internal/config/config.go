@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 
@@ -36,10 +37,26 @@ func Load() *Config {
 		ReadOnlyMode:       getEnvBool("READ_ONLY_MODE", false),
 		HTTPSOnly:          getEnvBool("HTTPS_ONLY", false),
 		CSRFEnabled:        getEnvBool("CSRF_ENABLED", true),
-		CORSOriginsRaw:     getEnv("CORS_ORIGINS_RAW", ""),
+		CORSOriginsRaw:     getEnv("CORS_ORIGINS", getEnv("CORS_ORIGINS_RAW", "")),
 		GatusAPIURL:        getEnv("GATUS_API_URL", "http://gatus:8080"),
 		Port:               getEnv("PORT", "8000"),
 	}
+}
+
+func (c *Config) ValidateSecurity() error {
+	if getEnvBool("ALLOW_INSECURE_DEFAULTS", false) {
+		return nil
+	}
+	if c.AdminPassword == "" || c.AdminPassword == "change-me" {
+		return fmt.Errorf("ADMIN_PASSWORD must be set to a non-default value")
+	}
+	if c.SessionSecret == "" || c.SessionSecret == "change-me-in-production" {
+		return fmt.Errorf("SESSION_SECRET must be set to a non-default value")
+	}
+	if len(c.SessionSecret) < 32 {
+		return fmt.Errorf("SESSION_SECRET must be at least 32 characters")
+	}
+	return nil
 }
 
 func getEnv(key, def string) string {

@@ -115,6 +115,10 @@ func Logs(name string, tail int) (string, error) {
 		return "", fmt.Errorf("docker unavailable: %w", err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		b, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("docker error %d: %s", resp.StatusCode, string(b))
+	}
 	// Docker logs stream uses a multiplexed format; strip 8-byte header per frame.
 	var sb strings.Builder
 	buf := make([]byte, 8)

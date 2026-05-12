@@ -15,8 +15,9 @@ const (
 )
 
 type entry struct {
-	count     int
+	count       int
 	windowStart time.Time
+	lockedUntil time.Time
 }
 
 type Limiter struct {
@@ -29,9 +30,9 @@ func New() *Limiter {
 }
 
 func ip(r *http.Request) string {
-	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
-		return strings.SplitN(fwd, ",", 2)[0]
-	}
+	// Do not trust X-Forwarded-For by default. This service may be exposed
+	// directly; trusting client-controlled forwarding headers lets attackers
+	// bypass login rate limits by rotating spoofed IPs.
 	// Strip port
 	host := r.RemoteAddr
 	if i := strings.LastIndex(host, ":"); i != -1 {
@@ -51,16 +52,20 @@ func (l *Limiter) Check(r *http.Request) string {
 	if !ok {
 		return ""
 	}
-	if now.Sub(e.windowStart) > windowSeconds*time.Second {
+	if !e.lockedUntil.IsZero() {
+		if now.Before(e.lockedUntil) {
+			remaining := int(time.Until(e.lockedUntil).Seconds())
+			if remaining < 1 {
+				remaining = 1
+			}
+			return fmt.Sprintf("Too many failed login attempts. Try again in %d seconds.", remaining)
+		}
 		delete(l.store, addr)
 		return ""
 	}
-	if e.count >= maxAttempts {
-		remaining := lockoutSeconds - int(now.Sub(e.windowStart).Seconds())
-		if remaining < 1 {
-			remaining = 1
-		}
-		return fmt.Sprintf("Too many failed login attempts. Try again in %d seconds.", remaining)
+	if now.Sub(e.windowStart) > windowSeconds*time.Second {
+		delete(l.store, addr)
+		return ""
 	}
 	return ""
 }
@@ -78,6 +83,9 @@ func (l *Limiter) RecordFailure(r *http.Request) {
 		return
 	}
 	e.count++
+	if e.count >= maxAttempts {
+		e.lockedUntil = now.Add(lockoutSeconds * time.Second)
+	}
 }
 
 // RecordSuccess clears the failure counter for the request IP.

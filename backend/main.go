@@ -48,13 +48,16 @@ func decodeJSON(r *http.Request, dst any) error {
 // ── server ────────────────────────────────────────────────────────────────────
 
 type Server struct {
-	cfg        *config.Config
-	sessions   *session.Manager
-	rl         *ratelimit.Limiter
-	pwdHash    []byte // bcrypt hash of cfg.AdminPassword
+	cfg      *config.Config
+	sessions *session.Manager
+	rl       *ratelimit.Limiter
+	pwdHash  []byte // bcrypt hash of cfg.AdminPassword
 }
 
 func NewServer(cfg *config.Config) (*Server, error) {
+	if err := cfg.ValidateSecurity(); err != nil {
+		return nil, err
+	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(cfg.AdminPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("bcrypt: %w", err)
@@ -70,7 +73,8 @@ func NewServer(cfg *config.Config) (*Server, error) {
 func (s *Server) Routes() http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(middleware.RealIP)
+	// Do not use middleware.RealIP here: login rate limiting intentionally
+	// keys off the direct peer address, not client-controlled forwarding headers.
 	r.Use(middleware.Recoverer)
 	r.Use(securityHeaders)
 
@@ -168,12 +172,10 @@ func (s *Server) csrfProtect(h http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		sess := s.sessions.Get(r)
-		if sess.CSRFToken != "" {
-			requestToken := r.Header.Get("X-CSRF-Token")
-			if requestToken == "" || requestToken != sess.CSRFToken {
-				jsonErr(w, http.StatusForbidden, "CSRF token invalid or missing")
-				return
-			}
+		requestToken := r.Header.Get("X-CSRF-Token")
+		if sess.CSRFToken == "" || requestToken == "" || requestToken != sess.CSRFToken {
+			jsonErr(w, http.StatusForbidden, "CSRF token invalid or missing")
+			return
 		}
 		h(w, r)
 	}
@@ -252,9 +254,9 @@ func (s *Server) handleListFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	type fileSummary struct {
-		Name        string  `json:"name"`
-		Path        string  `json:"path"`
-		SizeBytes   int64   `json:"size_bytes"`
+		Name         string  `json:"name"`
+		Path         string  `json:"path"`
+		SizeBytes    int64   `json:"size_bytes"`
 		LastModified float64 `json:"last_modified"`
 	}
 	var result []fileSummary
@@ -264,9 +266,9 @@ func (s *Server) handleListFiles(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		result = append(result, fileSummary{
-			Name:        filepath.Base(f),
-			Path:        f,
-			SizeBytes:   info.Size(),
+			Name:         filepath.Base(f),
+			Path:         f,
+			SizeBytes:    info.Size(),
 			LastModified: float64(info.ModTime().UnixMilli()) / 1000,
 		})
 	}
@@ -366,7 +368,10 @@ func (s *Server) handleSaveConfig(w http.ResponseWriter, r *http.Request) {
 	// Backup current file before overwriting
 	if existing, err := yamlutil.ReadRaw(path); err == nil {
 		sess := s.sessions.Get(r)
-		_, _ = backup.Create(s.cfg.BackupDir, path, existing, sess.User)
+		if _, err := backup.Create(s.cfg.BackupDir, path, existing, sess.User); err != nil {
+			jsonErr(w, http.StatusInternalServerError, fmt.Sprintf("failed to create backup: %v", err))
+			return
+		}
 	}
 
 	if err := yamlutil.WriteRaw(path, req.Content); err != nil {
@@ -441,7 +446,10 @@ func (s *Server) handleRollback(w http.ResponseWriter, r *http.Request) {
 	// Back up current file before restoring
 	if existing, err := yamlutil.ReadRaw(path); err == nil {
 		sess := s.sessions.Get(r)
-		_, _ = backup.Create(s.cfg.BackupDir, path, existing, sess.User)
+		if _, err := backup.Create(s.cfg.BackupDir, path, existing, sess.User); err != nil {
+			jsonErr(w, http.StatusInternalServerError, fmt.Sprintf("failed to create backup: %v", err))
+			return
+		}
 	}
 
 	if err := yamlutil.WriteRaw(path, content); err != nil {
@@ -558,11 +566,11 @@ func (s *Server) handleGatusEndpoints(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type epStatus struct {
-		Key            string  `json:"key"`
-		Name           string  `json:"name"`
-		Group          string  `json:"group"`
-		Success        *bool   `json:"success"`
-		LastDurationMs *int64  `json:"last_duration_ms"`
+		Key            string `json:"key"`
+		Name           string `json:"name"`
+		Group          string `json:"group"`
+		Success        *bool  `json:"success"`
+		LastDurationMs *int64 `json:"last_duration_ms"`
 	}
 
 	result := make([]epStatus, 0, len(data))

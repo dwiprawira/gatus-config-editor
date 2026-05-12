@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { Plus, Copy, Trash2, Edit2, ChevronDown, ChevronRight } from 'lucide-react'
 import type { Endpoint, GatusConfig } from '../types/gatus'
 import { EndpointForm } from '../components/endpoints/EndpointForm'
@@ -35,10 +36,10 @@ function DurationBadge({ ms }: { ms: number | null }) {
 
 interface Props {
   config: GatusConfig
-  onChange: (c: GatusConfig) => void
+  onSave: (c: GatusConfig) => Promise<void>
 }
 
-export function EndpointsPage({ config, onChange }: Props) {
+export function EndpointsPage({ config, onSave }: Props) {
   const configuredProviders = Object.keys(config.alerting ?? {})
   const [editIdx, setEditIdx] = useState<number | null>(null)
   const [isAdding, setIsAdding] = useState(false)
@@ -46,6 +47,7 @@ export function EndpointsPage({ config, onChange }: Props) {
   const [deleteIdx, setDeleteIdx] = useState<number | null>(null)
   const [groupFilter, setGroupFilter] = useState<string>('all')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const [savingEndpoint, setSavingEndpoint] = useState(false)
 
   const endpoints = config.endpoints ?? []
 
@@ -94,26 +96,41 @@ export function EndpointsPage({ config, onChange }: Props) {
     return map
   }, [filtered])
 
-  const updateEndpoints = (eps: Endpoint[]) => onChange({ ...config, endpoints: eps })
-
+  const persistEndpoints = async (eps: Endpoint[]) => {
+    const next = { ...config, endpoints: eps }
+    setSavingEndpoint(true)
+    try {
+      await onSave(next)
+      toast.success('Endpoint saved')
+    } catch (error) {
+      toast.error('Failed to save endpoint')
+      throw error
+    } finally {
+      setSavingEndpoint(false)
+    }
+  }
   const startAdd = () => { setDraft({ ...EMPTY_ENDPOINT }); setIsAdding(true) }
   const startEdit = (i: number) => { setDraft({ ...endpoints[i] }); setEditIdx(i) }
 
-  const saveNew = () => { updateEndpoints([...endpoints, draft]); setIsAdding(false) }
-  const saveEdit = () => {
+  const saveNew = async () => {
+    const next = [...endpoints, draft]
+    await persistEndpoints(next)
+    setIsAdding(false)
+  }
+  const saveEdit = async () => {
     if (editIdx === null) return
     const next = [...endpoints]; next[editIdx] = draft
-    updateEndpoints(next); setEditIdx(null)
+    await persistEndpoints(next); setEditIdx(null)
   }
 
-  const duplicate = (i: number) => {
+  const duplicate = async (i: number) => {
     const copy = { ...endpoints[i], name: `${endpoints[i].name}-copy` }
-    updateEndpoints([...endpoints.slice(0, i + 1), copy, ...endpoints.slice(i + 1)])
+    await persistEndpoints([...endpoints.slice(0, i + 1), copy, ...endpoints.slice(i + 1)])
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (deleteIdx === null) return
-    updateEndpoints(endpoints.filter((_, i) => i !== deleteIdx))
+    await persistEndpoints(endpoints.filter((_, i) => i !== deleteIdx))
     setDeleteIdx(null)
   }
 
@@ -126,8 +143,11 @@ export function EndpointsPage({ config, onChange }: Props) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Endpoints</h1>
-        <button className="btn-primary" onClick={startAdd}>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Endpoints</h1>
+          {savingEndpoint && <p className="text-xs text-gray-500 mt-1">Saving endpoint changes…</p>}
+        </div>
+        <button className="btn-primary" onClick={startAdd} disabled={savingEndpoint}>
           <Plus className="h-4 w-4" /> Add Endpoint
         </button>
       </div>

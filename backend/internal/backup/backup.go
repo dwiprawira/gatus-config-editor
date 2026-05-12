@@ -1,23 +1,26 @@
 package backup
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
 
 type Meta struct {
-	ID       string `json:"id"`
-	Original string `json:"original"`
-	Backup   string `json:"backup"`
+	ID        string `json:"id"`
+	Original  string `json:"original"`
+	Backup    string `json:"backup"`
 	Timestamp string `json:"timestamp"`
-	User     string `json:"user"`
-	SHA256   string `json:"sha256"`
-	Exists   bool   `json:"exists"`
+	User      string `json:"user"`
+	SHA256    string `json:"sha256"`
+	Exists    bool   `json:"exists"`
 }
 
 func checksum(content string) string {
@@ -29,6 +32,31 @@ func backupDir(dir string) error {
 	return os.MkdirAll(dir, 0o755)
 }
 
+var backupIDRe = regexp.MustCompile(`^[A-Za-z0-9._-]+\.ya?ml$`)
+
+func randomSuffix() string {
+	b := make([]byte, 4)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(b)
+}
+
+func safeJoin(base, name string) (string, error) {
+	root, err := filepath.Abs(base)
+	if err != nil {
+		return "", err
+	}
+	target, err := filepath.Abs(filepath.Join(root, name))
+	if err != nil {
+		return "", err
+	}
+	if target != root && !strings.HasPrefix(target, root+string(filepath.Separator)) {
+		return "", fmt.Errorf("path escapes backup directory")
+	}
+	return target, nil
+}
+
 // Create writes a timestamped backup of srcPath with content under backupDir.
 func Create(backupDirPath, srcPath, content, user string) (string, error) {
 	if err := backupDir(backupDirPath); err != nil {
@@ -37,8 +65,8 @@ func Create(backupDirPath, srcPath, content, user string) (string, error) {
 	base := filepath.Base(srcPath)
 	ext := filepath.Ext(base)
 	stem := strings.TrimSuffix(base, ext)
-	ts := time.Now().UTC().Format("20060102-150405")
-	backupName := fmt.Sprintf("%s-%s%s", stem, ts, ext)
+	ts := time.Now().UTC().Format("20060102-150405.000000000")
+	backupName := fmt.Sprintf("%s-%s-%s%s", stem, ts, randomSuffix(), ext)
 	backupPath := filepath.Join(backupDirPath, backupName)
 
 	if err := os.WriteFile(backupPath, []byte(content), 0o644); err != nil {
@@ -55,8 +83,13 @@ func Create(backupDirPath, srcPath, content, user string) (string, error) {
 		SHA256:    checksum(content),
 		Exists:    true,
 	}
-	mb, _ := json.MarshalIndent(meta, "", "  ")
-	_ = os.WriteFile(backupPath+".meta.json", mb, 0o644)
+	mb, err := json.MarshalIndent(meta, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(backupPath+".meta.json", mb, 0o644); err != nil {
+		return "", err
+	}
 
 	return backupName, nil
 }
@@ -99,7 +132,13 @@ func List(backupDirPath, originalName string) ([]Meta, error) {
 
 // GetContent returns the backup file content and its metadata.
 func GetContent(backupDirPath, id string) (string, *Meta, error) {
-	metaPath := filepath.Join(backupDirPath, id+".meta.json")
+	if !backupIDRe.MatchString(id) || filepath.Base(id) != id {
+		return "", nil, fmt.Errorf("invalid backup id: %s", id)
+	}
+	metaPath, err := safeJoin(backupDirPath, id+".meta.json")
+	if err != nil {
+		return "", nil, fmt.Errorf("invalid backup id: %s", id)
+	}
 	b, err := os.ReadFile(metaPath)
 	if err != nil {
 		return "", nil, fmt.Errorf("backup not found: %s", id)
@@ -108,7 +147,13 @@ func GetContent(backupDirPath, id string) (string, *Meta, error) {
 	if err := json.Unmarshal(b, &m); err != nil {
 		return "", nil, err
 	}
-	backupPath := filepath.Join(backupDirPath, m.Backup)
+	if !backupIDRe.MatchString(m.Backup) || filepath.Base(m.Backup) != m.Backup {
+		return "", nil, fmt.Errorf("invalid backup metadata: %s", m.Backup)
+	}
+	backupPath, err := safeJoin(backupDirPath, m.Backup)
+	if err != nil {
+		return "", nil, fmt.Errorf("invalid backup metadata: %s", m.Backup)
+	}
 	content, err := os.ReadFile(backupPath)
 	if err != nil {
 		return "", nil, fmt.Errorf("backup file missing: %s", m.Backup)
