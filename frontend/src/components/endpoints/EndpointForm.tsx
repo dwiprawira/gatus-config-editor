@@ -19,7 +19,8 @@ const PROTOCOL_OPTIONS = [
   { value: 'ws://', label: 'WebSocket' },
   { value: 'wss://', label: 'WebSocket (TLS)' },
   { value: 'sctp://', label: 'SCTP' },
-  { value: 'domain-expiration://', label: 'Domain Expiration' },
+  { value: 'http://', label: 'Domain Expiration (HTTP)' },
+  { value: 'https://', label: 'Domain Expiration (HTTPS)' },
 ]
 
 const TABS = ['Basic', 'Conditions', 'Alerts', 'Client', 'Maintenance', 'Advanced'] as const
@@ -115,9 +116,8 @@ export function EndpointForm({ value, onChange, onCancel, onSave, configuredProv
           <button
             key={t}
             type="button"
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              tab === t ? 'border-brand-600 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${tab === t ? 'border-brand-600 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
             onClick={() => setTab(t)}
           >
             {t}
@@ -241,10 +241,10 @@ export function EndpointForm({ value, onChange, onCancel, onSave, configuredProv
       {/* Alerts */}
       {tab === 'Alerts' && (
         <AlertsEditor
-        value={value.alerts ?? []}
-        onChange={(a) => set({ alerts: a })}
-        configuredProviders={configuredProviders}
-      />
+          value={value.alerts ?? []}
+          onChange={(a) => set({ alerts: a })}
+          configuredProviders={configuredProviders}
+        />
       )}
 
       {/* Client options */}
