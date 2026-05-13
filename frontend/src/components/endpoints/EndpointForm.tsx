@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Endpoint, DNSConfig, SSHConfig, ClientConfig } from '../../types/gatus'
 import { ConditionsEditor } from './ConditionsEditor'
 import { AlertsEditor } from './AlertsEditor'
@@ -42,10 +42,32 @@ interface Props {
   configuredProviders: string[]
 }
 
+function headersToText(h?: Record<string, string>) {
+  return Object.entries(h ?? {}).map(([k, v]) => `${k}: ${v}`).join('\n')
+}
+function labelsToText(l?: Record<string, string>) {
+  return Object.entries(l ?? {}).map(([k, v]) => `${k}: ${v}`).join('\n')
+}
+function parseKV(text: string): Record<string, string> {
+  const out: Record<string, string> = {}
+  text.split('\n').forEach((line) => {
+    const idx = line.indexOf(':')
+    if (idx > 0) out[line.slice(0, idx).trim()] = line.slice(idx + 1).trim()
+  })
+  return out
+}
+
 export function EndpointForm({ value, onChange, onCancel, onSave, configuredProviders }: Props) {
   const [tab, setTab] = useState<Tab>('Basic')
   const [scheme, setScheme] = useState(getScheme(value.url || ''))
+  const [headersText, setHeadersText] = useState(() => headersToText(value.headers))
+  const [labelsText, setLabelsText] = useState(() => labelsToText(value['extra-labels']))
   const set = (patch: Partial<Endpoint>) => onChange({ ...value, ...patch })
+
+  useEffect(() => {
+    setHeadersText(headersToText(value.headers))
+    setLabelsText(labelsToText(value['extra-labels']))
+  }, [value.name])
 
   const urlWithoutScheme = stripScheme(value.url || '', scheme)
 
@@ -158,19 +180,13 @@ export function EndpointForm({ value, onChange, onCancel, onSave, configuredProv
                 <textarea className="input font-mono text-xs" rows={3} value={value.body ?? ''} onChange={(e) => set({ body: e.target.value })} />
               </div>
               <div>
-                <label className="label">Headers (key=value, one per line)</label>
+                <label className="label">Headers (key: value, one per line)</label>
                 <textarea
                   className="input font-mono text-xs"
                   rows={3}
-                  value={Object.entries(value.headers ?? {}).map(([k, v]) => `${k}: ${v}`).join('\n')}
-                  onChange={(e) => {
-                    const headers: Record<string, string> = {}
-                    e.target.value.split('\n').forEach((line) => {
-                      const idx = line.indexOf(':')
-                      if (idx > 0) headers[line.slice(0, idx).trim()] = line.slice(idx + 1).trim()
-                    })
-                    set({ headers })
-                  }}
+                  value={headersText}
+                  onChange={(e) => setHeadersText(e.target.value)}
+                  onBlur={() => set({ headers: parseKV(headersText) })}
                   placeholder="Authorization: Bearer token"
                 />
               </div>
@@ -302,19 +318,13 @@ export function EndpointForm({ value, onChange, onCancel, onSave, configuredProv
         <div className="space-y-4">
           <p className="text-sm text-gray-500">Extra labels for Prometheus metrics.</p>
           <div>
-            <label className="label">Extra Labels (key=value, one per line)</label>
+            <label className="label">Extra Labels (key: value, one per line)</label>
             <textarea
               className="input font-mono text-xs"
               rows={4}
-              value={Object.entries(value['extra-labels'] ?? {}).map(([k, v]) => `${k}: ${v}`).join('\n')}
-              onChange={(e) => {
-                const labels: Record<string, string> = {}
-                e.target.value.split('\n').forEach((line) => {
-                  const idx = line.indexOf(':')
-                  if (idx > 0) labels[line.slice(0, idx).trim()] = line.slice(idx + 1).trim()
-                })
-                set({ 'extra-labels': labels })
-              }}
+              value={labelsText}
+              onChange={(e) => setLabelsText(e.target.value)}
+              onBlur={() => set({ 'extra-labels': parseKV(labelsText) })}
               placeholder="env: production"
             />
           </div>
