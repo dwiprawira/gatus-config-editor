@@ -3,6 +3,8 @@ package validator
 import (
 	"fmt"
 	"regexp"
+	"strconv"
+	"strings"
 
 	"gatus-config-editor/internal/yamlutil"
 )
@@ -46,7 +48,7 @@ var (
 	validAnnouncementTypes = map[string]bool{
 		"outage": true, "warning": true, "information": true, "operational": true, "none": true,
 	}
-	durationRe = regexp.MustCompile(`^\d+(ms|s|m|h|d)$`)
+	durationRe = regexp.MustCompile(`^(\d+)(ms|s|m|h|d)$`)
 	timeRe     = regexp.MustCompile(`^\d{2}:\d{2}$`)
 )
 
@@ -104,6 +106,31 @@ func addWarn(r *Result, field, msg string) {
 	r.Warnings = append(r.Warnings, Issue{field, msg, "warning"})
 }
 
+// parseDurationSeconds converts a Gatus duration string (e.g. "5m", "1h") to seconds.
+func parseDurationSeconds(s string) (int64, bool) {
+	m := durationRe.FindStringSubmatch(s)
+	if m == nil {
+		return 0, false
+	}
+	n, err := strconv.ParseInt(m[1], 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	switch m[2] {
+	case "ms":
+		return n / 1000, true
+	case "s":
+		return n, true
+	case "m":
+		return n * 60, true
+	case "h":
+		return n * 3600, true
+	case "d":
+		return n * 86400, true
+	}
+	return 0, false
+}
+
 func checkEndpoints(v interface{}, r *Result) {
 	eps, ok := v.([]interface{})
 	if !ok {
@@ -132,12 +159,12 @@ func checkEndpoints(v interface{}, r *Result) {
 		} else {
 			checkURL(url, pfx, r)
 		}
-		if iv, ok := ep["interval"]; ok {
-			if s, ok := iv.(string); ok && !durationRe.MatchString(s) {
-				addWarn(r, pfx+".interval", fmt.Sprintf("duration %q may not be valid", s))
-			}
+		intervalStr, _ := ep["interval"].(string)
+		if intervalStr != "" && !durationRe.MatchString(intervalStr) {
+			addWarn(r, pfx+".interval", fmt.Sprintf("duration %q may not be valid", intervalStr))
 		}
 		checkConditions(ep["conditions"], pfx, r)
+		checkDomainExpirationInterval(ep["conditions"], intervalStr, pfx, r)
 		checkEndpointAlerts(ep["alerts"], pfx, r)
 	}
 }
@@ -168,6 +195,36 @@ func checkConditions(v interface{}, pfx string, r *Result) {
 		if !ok || s == "" {
 			addErr(r, fmt.Sprintf("%s.conditions[%d]", pfx, i), "condition must be a non-empty string")
 		}
+	}
+}
+
+func checkDomainExpirationInterval(conditions interface{}, intervalStr, pfx string, r *Result) {
+	conds, ok := conditions.([]interface{})
+	if !ok {
+		return
+	}
+	hasDomainExpiration := false
+	for _, c := range conds {
+		if s, ok := c.(string); ok && strings.Contains(s, "[DOMAIN_EXPIRATION]") {
+			hasDomainExpiration = true
+			break
+		}
+	}
+	if !hasDomainExpiration {
+		return
+	}
+	if intervalStr == "" {
+		addWarn(r, pfx+".interval", "[DOMAIN_EXPIRATION] requires an explicit interval ≥ 5m — WHOIS/RDAP servers throttle frequent queries (recommended: 1h)")
+		return
+	}
+	secs, ok := parseDurationSeconds(intervalStr)
+	if !ok {
+		return
+	}
+	if secs < 300 {
+		addErr(r, pfx+".interval", fmt.Sprintf("[DOMAIN_EXPIRATION] interval %q is below the 5m minimum — Gatus will reject this config (WHOIS/RDAP throttling)", intervalStr))
+	} else if secs < 3600 {
+		addWarn(r, pfx+".interval", fmt.Sprintf("[DOMAIN_EXPIRATION] interval %q works but 1h+ is recommended to avoid WHOIS/RDAP rate limits", intervalStr))
 	}
 }
 

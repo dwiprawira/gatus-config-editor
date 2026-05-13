@@ -61,6 +61,29 @@ export function EndpointForm({ value, onChange, onCancel, onSave, configuredProv
   const isDNS = scheme === 'dns://'
   const isSSH = scheme === 'ssh://'
   const isHTTP = scheme === 'http://' || scheme === 'https://'
+  const isDomainExpiration =
+    scheme === 'domain-expiration://' ||
+    (value.conditions ?? []).some((c) => c.includes('[DOMAIN_EXPIRATION]'))
+
+  function domainExpirationIntervalHint() {
+    if (!isDomainExpiration) return null
+    const iv = value.interval ?? ''
+    const m = iv.match(/^(\d+)(ms|s|m|h|d)$/)
+    let secs = 0
+    if (m) {
+      const n = parseInt(m[1])
+      const unit = m[2]
+      if (unit === 'ms') secs = n / 1000
+      else if (unit === 's') secs = n
+      else if (unit === 'm') secs = n * 60
+      else if (unit === 'h') secs = n * 3600
+      else if (unit === 'd') secs = n * 86400
+    }
+    if (!iv) return <p className="text-xs text-amber-600 mt-1">WHOIS/RDAP: set explicit interval ≥ 5m. Recommended: 1h.</p>
+    if (secs < 300) return <p className="text-xs text-red-600 mt-1">Interval below 5m minimum — Gatus will reject this config (WHOIS/RDAP throttling).</p>
+    if (secs < 3600) return <p className="text-xs text-amber-600 mt-1">Interval &lt; 1h may cause WHOIS/RDAP rate limiting. Recommended: 1h+.</p>
+    return null
+  }
 
   return (
     <div className="space-y-4">
@@ -95,6 +118,7 @@ export function EndpointForm({ value, onChange, onCancel, onSave, configuredProv
             <div>
               <label className="label">Check Interval</label>
               <input className="input" value={value.interval ?? ''} onChange={(e) => set({ interval: e.target.value })} placeholder="5m" />
+              {domainExpirationIntervalHint()}
             </div>
           </div>
 

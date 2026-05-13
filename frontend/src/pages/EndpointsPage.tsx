@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Plus, Copy, Trash2, Edit2, ChevronDown, ChevronRight } from 'lucide-react'
-import type { Endpoint, GatusConfig } from '../types/gatus'
+import type { Endpoint, GatusConfig, Alert } from '../types/gatus'
 import { EndpointForm } from '../components/endpoints/EndpointForm'
 import { Modal } from '../components/ui/Modal'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -25,6 +25,28 @@ function StatusDot({ success }: { success: boolean | null }) {
   )
   return (
     <span className="h-2.5 w-2.5 rounded-full bg-red-500 inline-block animate-pulse" title="Unhealthy" />
+  )
+}
+
+function AlertBadges({ alerts }: { alerts?: Alert[] }) {
+  if (!alerts || alerts.length === 0) return null
+  const types = alerts.map((a) => a.type).filter(Boolean)
+  if (types.length === 0) return null
+  const show = types.slice(0, 2)
+  const overflow = types.length - show.length
+  return (
+    <div className="flex items-center gap-1 flex-wrap">
+      {show.map((t) => (
+        <span key={t} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-200 whitespace-nowrap">
+          {t}
+        </span>
+      ))}
+      {overflow > 0 && (
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500">
+          +{overflow}
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -103,7 +125,17 @@ export function EndpointsPage({ config, onSave }: Props) {
       await onSave(next)
       toast.success('Endpoint saved')
     } catch (error) {
-      toast.error('Failed to save endpoint')
+      const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+      const validationErrors = (
+        typeof detail === 'object' && detail !== null && 'errors' in detail
+          ? (detail as { errors: { field: string; message: string }[] }).errors
+          : []
+      )
+      if (validationErrors.length > 0) {
+        validationErrors.forEach((e) => toast.error(e.message, { duration: 6000 }))
+      } else {
+        toast.error('Failed to save endpoint')
+      }
       throw error
     } finally {
       setSavingEndpoint(false)
@@ -219,12 +251,14 @@ export function EndpointsPage({ config, onSave }: Props) {
                             <div className="flex items-center gap-2 mt-0.5 sm:hidden text-xs text-gray-400">
                               <DurationBadge ms={status?.last_duration_ms ?? null} />
                               <span>{ep.interval ?? '60s'}</span>
+                              <AlertBadges alerts={ep.alerts} />
                             </div>
                           </div>
 
                           <div className="hidden sm:flex items-center gap-3 text-xs text-gray-400">
                             <DurationBadge ms={status?.last_duration_ms ?? null} />
                             <span>{ep.interval ?? '60s'}</span>
+                            <AlertBadges alerts={ep.alerts} />
                           </div>
 
                           <div className="flex gap-1 shrink-0">

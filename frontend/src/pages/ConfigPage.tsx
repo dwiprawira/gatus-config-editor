@@ -14,7 +14,7 @@ import { AlertingForm } from '../components/config/AlertingForm'
 import { RawYamlEditor } from '../components/config/RawYamlEditor'
 import { ValidationPanel } from '../components/ui/ValidationPanel'
 import type { GatusConfig } from '../types/gatus'
-import type { ValidationResult } from '../api/types'
+import type { ValidationResult, ValidationIssue } from '../api/types'
 import { dumpYaml } from '../utils/yamlParse'
 
 const SECTIONS = [
@@ -64,11 +64,14 @@ export function ConfigPage({ config, rawYaml, filename, onConfigChange, onRawYam
     try {
       await saveConfig(filename, rawYaml, force)
       onSaved?.(rawYaml)
+      setValidation(null)
       toast.success('Configuration saved')
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
       if (typeof detail === 'object' && detail !== null && 'errors' in detail) {
-        toast.error('Validation failed — use Force Save or fix errors first')
+        const errors = (detail as { errors: ValidationIssue[] }).errors
+        setValidation({ valid: false, errors, warnings: [], native_validation_available: false, native_validation_note: '' })
+        toast.error(`${errors.length} validation error(s) — see details below`)
       } else {
         toast.error(String(detail) || 'Save failed')
       }
