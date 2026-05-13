@@ -19,8 +19,6 @@ const PROTOCOL_OPTIONS = [
   { value: 'ws://', label: 'WebSocket' },
   { value: 'wss://', label: 'WebSocket (TLS)' },
   { value: 'sctp://', label: 'SCTP' },
-  { value: 'http://', label: 'Domain Expiration (HTTP)' },
-  { value: 'https://', label: 'Domain Expiration (HTTPS)' },
 ]
 
 const TABS = ['Basic', 'Conditions', 'Alerts', 'Client', 'Maintenance', 'Advanced'] as const
