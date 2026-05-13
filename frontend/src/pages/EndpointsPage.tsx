@@ -50,6 +50,26 @@ function AlertBadges({ alerts }: { alerts?: Alert[] }) {
   )
 }
 
+function ConditionBadges({ conditions }: { conditions?: string[] }) {
+  if (!conditions || conditions.length === 0) return null
+  const show = conditions.slice(0, 2)
+  const overflow = conditions.length - show.length
+  return (
+    <div className="flex items-center gap-1 flex-wrap mt-1">
+      {show.map((c, i) => (
+        <span key={i} className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-gray-100 text-gray-500 border border-gray-200 truncate max-w-[180px]">
+          {c}
+        </span>
+      ))}
+      {overflow > 0 && (
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-400">
+          +{overflow}
+        </span>
+      )}
+    </div>
+  )
+}
+
 function DurationBadge({ ms }: { ms: number | null }) {
   if (ms === null) return null
   const color = ms < 200 ? 'text-green-600' : ms < 500 ? 'text-yellow-600' : 'text-red-600'
@@ -249,6 +269,7 @@ export function EndpointsPage({ config, onSave }: Props) {
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-gray-900 text-sm truncate">{ep.name}</p>
                             <p className="text-xs text-gray-400 font-mono truncate">{ep.url}</p>
+                            <ConditionBadges conditions={ep.conditions} />
                             <div className="flex items-center gap-2 mt-0.5 sm:hidden text-xs text-gray-400">
                               <DurationBadge ms={status?.last_duration_ms ?? null} />
                               <span>{ep.interval ?? '60s'}</span>
