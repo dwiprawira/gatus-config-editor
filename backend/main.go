@@ -102,6 +102,7 @@ func (s *Server) Routes() http.Handler {
 		r.Get("/config/backups", s.requireAuth(s.handleListBackups))
 		r.Get("/config/backups/{id}", s.requireAuth(s.handleGetBackup))
 		r.Get("/config/backups/{id}/download", s.requireAuth(s.handleDownloadBackup))
+		r.Delete("/config/backups/{id}", s.requireAuth(s.csrfProtect(s.handleDeleteBackup)))
 		r.Post("/config/rollback", s.requireAuth(s.csrfProtect(s.handleRollback)))
 		r.Post("/config/diff", s.requireAuth(s.handleDiff))
 
@@ -418,6 +419,15 @@ func (s *Server) handleDownloadBackup(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.WriteString(w, content)
 }
 
+func (s *Server) handleDeleteBackup(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := backup.Delete(s.cfg.BackupDir, id); err != nil {
+		jsonErr(w, http.StatusNotFound, err.Error())
+		return
+	}
+	jsonOK(w, map[string]string{"deleted": id})
+}
+
 func (s *Server) handleRollback(w http.ResponseWriter, r *http.Request) {
 	if s.cfg.ReadOnlyMode {
 		jsonErr(w, http.StatusForbidden, "Read-only mode is enabled")
@@ -484,7 +494,13 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	diff := backup.Diff(backupContent, current)
-	jsonOK(w, map[string]string{"diff": diff, "backup_id": req.BackupID, "target_file": req.TargetFile})
+	jsonOK(w, map[string]any{
+		"diff":        diff,
+		"old_content": backupContent,
+		"new_content": current,
+		"backup_id":   req.BackupID,
+		"target_file": req.TargetFile,
+	})
 }
 
 // Gatus / Docker handlers

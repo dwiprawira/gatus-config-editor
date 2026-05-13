@@ -161,6 +161,31 @@ func GetContent(backupDirPath, id string) (string, *Meta, error) {
 	return string(content), &m, nil
 }
 
+// Delete removes a backup file and its metadata.
+func Delete(backupDirPath, id string) error {
+	if !backupIDRe.MatchString(id) || filepath.Base(id) != id {
+		return fmt.Errorf("invalid backup id: %s", id)
+	}
+	metaPath, err := safeJoin(backupDirPath, id+".meta.json")
+	if err != nil {
+		return fmt.Errorf("invalid backup id: %s", id)
+	}
+	b, err := os.ReadFile(metaPath)
+	if err != nil {
+		return fmt.Errorf("backup not found: %s", id)
+	}
+	var m Meta
+	if err := json.Unmarshal(b, &m); err != nil {
+		return err
+	}
+	backupPath, err := safeJoin(backupDirPath, m.Backup)
+	if err != nil {
+		return fmt.Errorf("invalid backup metadata: %s", m.Backup)
+	}
+	_ = os.Remove(backupPath)
+	return os.Remove(metaPath)
+}
+
 // Diff returns a unified diff string (backup as "old", current as "new").
 func Diff(backup, current string) string {
 	bLines := strings.Split(backup, "\n")

@@ -54,6 +54,8 @@ export interface BackupContent {
 
 export interface DiffResponse {
   diff: string
+  old_content: string
+  new_content: string
   backup_id: string
   target_file: string
 }

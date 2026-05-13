@@ -37,3 +37,6 @@ export const rollback = (backup_id: string, target_file: string) =>
 
 export const diffBackup = (backup_id: string, target_file: string) =>
   api.post<DiffResponse>('/config/diff', { backup_id, target_file })
+
+export const deleteBackup = (id: string) =>
+  api.delete(`/config/backups/${id}`)
