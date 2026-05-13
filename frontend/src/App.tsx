@@ -70,7 +70,8 @@ function AppShell() {
       setConfig(parseYaml(fileContent.content))
       setCurrentFile(fileContent.name)
     }
-  }, [fileContent, dirty])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileContent])
 
   const handleConfigChange = (next: GatusConfig, yaml: string) => {
     setConfig(next)
@@ -88,7 +89,10 @@ function AppShell() {
   }
 
   const handleConfigSaved = (yaml?: string) => {
-    if (yaml !== undefined) setRawYaml(yaml)
+    if (yaml !== undefined) {
+      setRawYaml(yaml)
+      setConfig(parseYaml(yaml))
+    }
     setDirty(false)
   }
 
