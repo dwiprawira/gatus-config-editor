@@ -115,6 +115,7 @@ export function EndpointsPage({ config, onSave }: Props) {
       if (!map.has(g)) map.set(g, [])
       map.get(g)!.push(ep)
     })
+    map.forEach((eps) => eps.sort((a, b) => a.name.localeCompare(b.name)))
     return map
   }, [filtered])
 
